@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.IO;    // 使用 IO 函式庫
 
 namespace txtwrite
 {
@@ -17,6 +18,9 @@ namespace txtwrite
         {
             InitializeComponent();
         }
+        bool isUndo = false;
+        private Stack<string> textHistory = new Stack<string>();
+        private const int MaxHistoryCount = 20; // 最多紀錄10個紀錄
 
         private void btnOpen_Click(object sender, EventArgs e)
         {
@@ -79,5 +83,101 @@ namespace txtwrite
                 MessageBox.Show("使用者取消了選擇檔案操作。", "訊息", MessageBoxButtons.OKCancel, MessageBoxIcon.Exclamation);
             }
         }
+
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            // 如果 RichTextBox 中有文字
+            if (!string.IsNullOrEmpty(rtbText.Text))
+            {
+                // 如果 RichTextBox 已經關聯到某個檔案
+                if (!string.IsNullOrEmpty(openFileDialog1.FileName))
+                {
+                    try
+                    {
+                        // 使用者選擇的檔案
+                        string saveFilePath = openFileDialog1.FileName;
+
+                        // 使用 StreamWriter 覆蓋檔案內容
+                        using (StreamWriter writer = new StreamWriter(saveFilePath))
+                        {
+                            writer.Write(rtbText.Text);
+                        }
+
+                        MessageBox.Show("存檔成功。", "訊息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        // 如果發生錯誤，用MessageBox顯示錯誤訊息
+                        MessageBox.Show("儲存檔案時發生錯誤: " + ex.Message, "錯誤訊息", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("請先選擇檔案以儲存。", "訊息", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                }
+            }
+            else
+            {
+                MessageBox.Show("沒有內容需要儲存。", "訊息", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+            }
+        }
+
+        private void listUndo_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void btnUndo_Click(object sender, EventArgs e)
+        {
+            isUndo = true;
+            if (textHistory.Count > 1)
+            {
+                textHistory.Pop(); // 移除當前的文本內容
+                rtbText.Text = textHistory.Peek(); // 將堆疊頂部的文本內容設置為當前的文本內容                
+            }
+            UpdateListBox(); // 更新 ListBox
+
+            isUndo = false;
+        }
+
+        private void rtbText_TextChanged(object sender, EventArgs e)
+        {
+            if (!isUndo)
+            {
+                // 將當前的文本內容加入堆疊
+                textHistory.Push(rtbText.Text);
+
+                // 確保堆疊中只保留最多10個紀錄
+                if (textHistory.Count > MaxHistoryCount)
+                {
+                    // 移除最底下的一筆資料
+                    Stack<string> tempStack = new Stack<string>();
+                    for (int i = 0; i < MaxHistoryCount; i++)
+                    {
+                        tempStack.Push(textHistory.Pop());
+                    }
+                    textHistory.Pop(); // 移除最底下的一筆資料
+                    foreach (string item in tempStack)
+                    {
+                        textHistory.Push(item);
+                    }
+                }
+                UpdateListBox(); // 更新 ListBox
+            }
+        }
+
+        // 更新 ListBox
+        void UpdateListBox()
+        {
+            listUndo.Items.Clear(); // 清空 ListBox 中的元素
+
+            // 將堆疊中的內容逐一添加到 ListBox 中
+            foreach (string item in textHistory)
+            {
+                listUndo.Items.Add(item);
+            }
+        }
     }
 }
+    
+
