@@ -16,6 +16,65 @@ namespace txtwrite
         public Form1()
         {
             InitializeComponent();
+            InitializeFontComboBox();
+            InitializeFontSizeComboBox();
+            InitializeFontStyleComboBox();
+        }
+
+        private void InitializeFontComboBox()
+        {
+            foreach (FontFamily font in FontFamily.Families)
+            {
+                comboBoxFont.Items.Add(font.Name);
+            }
+            comboBoxFont.SelectedIndex = 0;
+        }
+
+        // 字體大小初始化
+        private void InitializeFontSizeComboBox()
+        {
+            for (int i = 8; i <= 144; i += 2)
+            {
+                comboBoxSize.Items.Add(i);
+            }
+            comboBoxSize.SelectedIndex = 2;
+        }
+
+        // 字體樣式初始化
+        private void InitializeFontStyleComboBox()
+        {
+            comboBoxStyle.Items.Add(FontStyle.Regular.ToString());
+            comboBoxStyle.Items.Add(FontStyle.Bold.ToString());
+            comboBoxStyle.Items.Add(FontStyle.Italic.ToString());
+            comboBoxStyle.Items.Add(FontStyle.Underline.ToString());
+            comboBoxStyle.Items.Add(FontStyle.Strikeout.ToString());
+            comboBoxStyle.SelectedIndex = 0;
+        }
+
+        private void comboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            ApplyFontSettings();
+        }
+
+        private void ApplyFontSettings()
+        {
+            if (rtbText.SelectionFont != null)
+            {
+                // 確保選擇的字型、大小和樣式都不為 null
+                string selectedFont = comboBoxFont.SelectedItem?.ToString();
+                string selectedSizeStr = comboBoxSize.SelectedItem?.ToString();
+                string selectedStyleStr = comboBoxStyle.SelectedItem?.ToString();
+
+                if (selectedFont != null && selectedSizeStr != null && selectedStyleStr != null)
+                {
+                    float selectedSize = float.Parse(selectedSizeStr);
+                    FontStyle selectedStyle = (FontStyle)Enum.Parse(typeof(FontStyle), selectedStyleStr);
+
+                    // 建立新的字體
+                    Font newFont = new Font(selectedFont, selectedSize, selectedStyle);
+                    rtbText.SelectionFont = newFont;
+                }
+            }
         }
 
         bool isUndo = false;
@@ -161,5 +220,3 @@ namespace txtwrite
         }
     }
 }
-
-
