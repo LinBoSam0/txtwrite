@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
@@ -27,7 +28,6 @@ namespace txtwrite
             comboBoxFont.SelectedIndex = 0;
         }
 
-        // 字體大小初始化
         private void InitializeFontSizeComboBox()
         {
             for (int i = 8; i <= 144; i += 2)
@@ -37,7 +37,6 @@ namespace txtwrite
             comboBoxSize.SelectedIndex = 2;
         }
 
-        // 字體樣式初始化
         private void InitializeFontStyleComboBox()
         {
             comboBoxStyle.Items.Add(FontStyle.Regular.ToString());
@@ -60,13 +59,11 @@ namespace txtwrite
 
         private void comboBox_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // 記錄當前選取範圍
             selectionStart = rtbText.SelectionStart;
             selectionLength = rtbText.SelectionLength;
 
             ApplyFontSettings();
 
-            // 恢復選取範圍
             rtbText.Select(selectionStart, selectionLength);
             rtbText.Focus();
         }
@@ -75,7 +72,6 @@ namespace txtwrite
         {
             if (rtbText.SelectionFont != null)
             {
-                // 確保選擇的字型、大小和樣式都不為 null
                 string selectedFont = comboBoxFont.SelectedItem?.ToString();
                 string selectedSizeStr = comboBoxSize.SelectedItem?.ToString();
                 string selectedStyleStr = comboBoxStyle.SelectedItem?.ToString();
@@ -85,7 +81,6 @@ namespace txtwrite
                     float selectedSize = float.Parse(selectedSizeStr);
                     FontStyle selectedStyle = (FontStyle)Enum.Parse(typeof(FontStyle), selectedStyleStr);
 
-                    // 建立新的字體
                     Font newFont = new Font(selectedFont, selectedSize, selectedStyle);
                     rtbText.SelectionFont = newFont;
                 }
@@ -93,9 +88,9 @@ namespace txtwrite
         }
 
         bool isUndo = false;
-        private Stack<string> textHistory = new Stack<string>();
-        private Stack<string> redoStack = new Stack<string>();
-        private const int MaxHistoryCount = 20; // 最多紀錄20個紀錄
+        private Stack<MemoryStream> undoStack = new Stack<MemoryStream>();
+        private Stack<MemoryStream> redoStack = new Stack<MemoryStream>();
+        private const int MaxHistoryCount = 20;
 
         private void btnOpen_Click(object sender, EventArgs e)
         {
@@ -174,10 +169,10 @@ namespace txtwrite
         private void btnUndo_Click(object sender, EventArgs e)
         {
             isUndo = true;
-            if (textHistory.Count > 1)
+            if (undoStack.Count > 1)
             {
-                redoStack.Push(textHistory.Pop());
-                rtbText.Text = textHistory.Peek();
+                redoStack.Push(undoStack.Pop());
+                LoadFromMemory(undoStack.Peek());
             }
             UpdateListBox();
             isUndo = false;
@@ -187,8 +182,8 @@ namespace txtwrite
         {
             if (redoStack.Count > 0)
             {
-                textHistory.Push(redoStack.Pop());
-                rtbText.Text = textHistory.Peek();
+                undoStack.Push(redoStack.Pop());
+                LoadFromMemory(undoStack.Peek());
                 UpdateListBox();
             }
         }
@@ -197,29 +192,41 @@ namespace txtwrite
         {
             if (!isUndo)
             {
-                textHistory.Push(rtbText.Text);
+                SaveCurrentStateToStack();
                 redoStack.Clear();
-                if (textHistory.Count > MaxHistoryCount)
+
+                if (undoStack.Count > MaxHistoryCount)
                 {
-                    Stack<string> tempStack = new Stack<string>();
-                    for (int i = 0; i < MaxHistoryCount; i++)
-                    {
-                        tempStack.Push(textHistory.Pop());
-                    }
-                    textHistory.Pop();
-                    foreach (string item in tempStack)
-                    {
-                        textHistory.Push(item);
-                    }
+                    undoStack = new Stack<MemoryStream>(undoStack.Take(MaxHistoryCount));
                 }
+
                 UpdateListBox();
             }
+        }
+
+        private void SaveCurrentStateToStack()
+        {
+            MemoryStream memoryStream = new MemoryStream();
+            rtbText.SaveFile(memoryStream, RichTextBoxStreamType.RichText);
+            undoStack.Push(memoryStream);
+
+            if (undoStack.Count > MaxHistoryCount)
+            {
+                undoStack = new Stack<MemoryStream>(undoStack.Take(MaxHistoryCount));
+            }
+        }
+
+        private void LoadFromMemory(MemoryStream memoryStream)
+        {
+            memoryStream.Seek(0, SeekOrigin.Begin);
+            rtbText.LoadFile(memoryStream, RichTextBoxStreamType.RichText);
         }
 
         void UpdateListBox()
         {
             listUndo.Items.Clear();
-            foreach (string item in textHistory)
+
+            foreach (MemoryStream item in undoStack)
             {
                 listUndo.Items.Add(item);
             }
